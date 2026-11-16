@@ -467,6 +467,16 @@ tvheadend.epgDetails = function(grid, index) {
           }));
 
       }
+
+      if (tvheadend.accessUpdate.admin &&
+          tvheadend.uilevel_match('expert', tvheadend.uilevel) &&
+          event.channelUuid && event.title) {
+          buttons.push(new Ext.Toolbar.Button({
+              handler: ignoreEvent,
+              iconCls: 'otherFilters',
+              tooltip: _('Create an EIT ignore rule for events with this title on this channel'),
+          }));
+      }
       return buttons;
     }                             //getDialogButtons
 
@@ -541,6 +551,23 @@ tvheadend.epgDetails = function(grid, index) {
 
     function recordEvent() {
         record('api/dvr/entry/create_by_event');
+    }
+
+    /* Opens the EIT ignore rule create form prefilled from this
+     * event; nothing is saved until the form is confirmed. */
+    function ignoreEvent() {
+        var title = event.title.replace(/[\\^$.|?*+()[\]{}]/g, '\\$&');
+        tvheadend.idnode_create({
+            url: 'api/eitignore',
+            titleS: _('EIT Ignore Rule'),
+            create: { }
+        }, false, {
+            enabled: true,
+            name: event.title,
+            channel: event.channelUuid,
+            title: '^' + title + '$',
+            comment: 'Created from EPG event'
+        });
     }
 
     function recordSeries() {

@@ -1465,6 +1465,13 @@ tvheadend.idnode_create = function(conf, onlyDefault, cloneValues)
             params: conf.params,
             success: function(d) {
                 d = json_decode(d);
+                /* Prefill the interactive form: initial field values,
+                 * so remote enum lists keep them once loaded. */
+                if (!onlyDefault && cloneValues)
+                    Ext.each(d.props, function(p) {
+                        if (p.id in cloneValues)
+                            p.value = cloneValues[p.id];
+                    });
                 tvheadend.idnode_editor_form(uilevel, d.props, d, panel, { create: true, showpwd: true });
                 if (onlyDefault) {
                     if (cloneValues)
