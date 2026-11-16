@@ -40,6 +40,7 @@
  * related / alternative showings after the recording actions.
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useDvrEditor } from '@/composables/useDvrEditor'
 import Drawer from 'primevue/drawer'
 import ActionMenu from '@/components/ActionMenu.vue'
@@ -55,6 +56,12 @@ import { openPlay } from '@/utils/playUrl'
 import { useVideoPlayer } from '@/composables/useVideoPlayer'
 import { useStreamProfilesStore } from '@/stores/streamProfiles'
 import { useAccessStore } from '@/stores/access'
+import { levelMatches } from '@/types/idnode'
+import {
+  EIT_IGNORE_QUERY_CHANNEL,
+  EIT_IGNORE_QUERY_RULES,
+  EIT_IGNORE_QUERY_TITLE,
+} from '@/views/configuration/eitIgnorePrefill'
 import { useDvrConfigStore } from '@/stores/dvrConfig'
 import { useEpgContentTypeStore } from '@/stores/epgContentTypes'
 import { useI18n } from '@/composables/useI18n'
@@ -618,6 +625,63 @@ function buildPlayAction(ev: EpgEventDetail): ActionDef | null {
   return null
 }
 
+/* "Ignore…" — opens the EIT Ignore Rules page. When rules (enabled
+ * or not) already match this event (`api/eitignore/match`), the page
+ * selects them: the event is still listed because a rule does not
+ * remove existing events, and a second rule would be a duplicate.
+ * Otherwise the page opens a create form prefilled from this event
+ * (channel + exact title). Nothing is saved until the admin confirms
+ * the form there, and the event stays in the EPG. Offered where the
+ * target page is reachable: admin access and the expert UI level
+ * (`configEitIgnoreGuard`). */
+const router = useRouter()
+
+/* Each Ignore request is valid only while the drawer shows the same
+ * event and is mounted: a change of event (also back to the same one)
+ * or unmounting invalidates it. */
+let ignoreRequest = 0
+watch(
+  () => props.event,
+  () => {
+    ignoreRequest++
+  },
+)
+onBeforeUnmount(() => {
+  ignoreRequest++
+})
+
+async function ignoreEvent(ev: EpgEventDetail, channelUuid: string, title: string) {
+  const request = ++ignoreRequest
+  let rules: string[] = []
+  try {
+    rules = (await apiCall<{ entries: string[] }>('eitignore/match', { eventId: ev.eventId }))
+      .entries ?? []
+  } catch {
+    /* No match information: fall back to the create form. */
+  }
+  if (request !== ignoreRequest) return
+  const query = rules.length
+    ? { [EIT_IGNORE_QUERY_RULES]: rules.join(',') }
+    : { [EIT_IGNORE_QUERY_CHANNEL]: channelUuid, [EIT_IGNORE_QUERY_TITLE]: title }
+  emit('close')
+  router.push({ name: 'config-channel-eit-ignore', query }).catch(() => undefined)
+}
+
+function buildIgnoreAction(ev: EpgEventDetail): ActionDef | null {
+  if (!access.data?.admin || !levelMatches('expert', access.uilevel)) return null
+  const channelUuid = ev.channelUuid
+  const title = ev.title
+  if (!channelUuid || !title) return null
+  return {
+    id: 'eitignore',
+    label: t('Ignore…'),
+    tooltip: t('Create an EIT ignore rule for events with this title on this channel, or show the rules that already match'),
+    onClick: () => {
+      void ignoreEvent(ev, channelUuid, title)
+    },
+  }
+}
+
 /* Other showings — related broadcasts and alternative showings,
  * browse-only (anonymous-access endpoints), so offered to every user
  * regardless of DVR access. It trails the DVR actions on purpose, so
@@ -746,6 +810,8 @@ const actions = computed<ActionDef[]>(() => {
   if (play) out.push(play)
   if (access.data?.dvr) out.push(...buildDvrActions(ev))
   out.push(buildShowingsAction())
+  const ignore = buildIgnoreAction(ev)
+  if (ignore) out.push(ignore)
   return out
 })
 
