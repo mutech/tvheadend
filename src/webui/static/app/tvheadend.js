@@ -1176,6 +1176,7 @@ function accessUpdate(o) {
         tvheadend.epggrab_base(chepg);
         tvheadend.epggrab_mod(chepg);
         tvheadend.ratinglabel(chepg);
+        tvheadend.eitignore(chepg);
 
         cp.add(chepg);
 
