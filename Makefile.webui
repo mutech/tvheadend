@@ -161,6 +161,7 @@ JAVASCRIPT += $(ROOTPATH)/app/wizard.js
 JAVASCRIPT += $(ROOTPATH)/tv.js
 JAVASCRIPT += $(ROOTPATH)/app/servicemapper.js
 JAVASCRIPT += $(ROOTPATH)/app/ratinglabels.js
+JAVASCRIPT += $(ROOTPATH)/app/eitignore.js
 
 JAVASCRIPT += $(ROOTPATH)/app/tvheadend.js
 
